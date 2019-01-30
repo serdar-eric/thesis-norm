@@ -1,9 +1,10 @@
 import turkish_normalization.turkish_levenshtein as t_lev
 
-insert_chars = ("aeoöğyr'h", 0.1)
-insert_high_vowels = ("ıiuü", 0.2) # seperate them because they are usually use for suffixes 
+insert_chars = ("aeoöğyr'h ", 0.1)
+insert_high_vowels = ("ıiuüs", 0.2) # seperate them because they are usually use for suffixes
+                                    # s for -aksın suffix
 diacritic_subs = ([
-    ("ı", "i"),
+    ("i", "ı"),
     ("u", "ü"),
     ("c", "ç"),
     ("g", "ğ"),
@@ -11,22 +12,43 @@ diacritic_subs = ([
     ("s", "ş"),
 ], 0)
 substitute_chars = ([
+    ("ı", "i"),
     ("e", "i"),
+    ("i", "e"), # birlestiricem -> birleştireceğim | vericem -> vereceğim
+    # ("ı", "a"), # anliyim -> anlayayım
+    # ("i", "a"), # anlıyım -> anlayayım
     ("0", "o"),
     ("0", "ö"),
     ("q", "g"),
     ("q", "ğ"),
-    ("q", "k"),
-    ("y", "ğ"),
-    ("w", "v"),
+    ("q", "k"), # yoqq -> yok
+    ("y", "ğ"), # deyişiyor -> değişiyor
+    ("w", "v"), # yawrum -> yavrum
     ("u", "i"), # geleceğum -> geleceğim
+    ("u", "ı"), # yavrım -> yavrum
     ("3", "e"), # güz3l -> güzel
+    ("$", "ş"), # $arkı -> şarkı
+    ("$", "s"), # herke$ -> herkes
+    ("j", "c"), # abijim -> abicim
 ], 0.1)
 
-substitute_chars_2 = (
-    [("v", "u")],
-    0.8
-)
+substitute_chars_2 = ([
+    ("h", "k"), # yok -> yoh
+    ("v", "u"),
+    ("z", "s"), # herkes -> herkez
+], 0.8)
+
+substitute_chars_3 = ([
+    ("i", "a"), # aliyim -> alayım
+    ("ı", "a"), # alıyım -> alayım
+], 0.3)
+
+substitute_cons_harm= ([
+    ("p", "b"),
+    ("ç", "c"),
+    ("t", "d"), # ğ koymadım genellikle yanlış yazılmıyor
+], 0.5 )
+
 subtitute_for_adjacents = ([
     ("q", "w"),
     ("q", "a"),
@@ -166,13 +188,13 @@ subtitute_for_adjacents = ([
     ("ç", "ö"),
     ("ç", "l"),
     ("ç", "ş")
-], 1)
-delete_chars = ("ıi", 0.6) # sıtandart, tiren 
+], 0.8)
+delete_chars = ("ıi", 0.8) # sıtandart, tiren
 delete_adjacent_chars = (list(subtitute_for_adjacents[0]), 1.0)
 
 def get_costs():
     insert_costs = t_lev.initiliaze_costs(insert_chars, insert_high_vowels)
-    substitute_costs = t_lev.initiliaze_costs(diacritic_subs, substitute_chars, substitute_chars_2, subtitute_for_adjacents)
+    substitute_costs = t_lev.initiliaze_costs(diacritic_subs, substitute_chars, substitute_chars_2, substitute_chars_3, substitute_cons_harm, subtitute_for_adjacents)
     delete_costs = t_lev.initiliaze_costs(delete_chars)
     delete_adjacent_costs = t_lev.initiliaze_costs(delete_adjacent_chars)
     return insert_costs, substitute_costs, delete_costs, delete_adjacent_costs
