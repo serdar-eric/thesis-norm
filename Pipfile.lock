@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "415dfdcb118dd9bdfef17671cb7dcd78dbd69b6ae7d4f39e8b44e71d60ca72e7"
+            "sha256": "ba8c3ae57899c1dc20c1db962f0b19304e9bf61d531a5fbfa14239ad86d4f219"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -15,6 +15,10 @@
             }
         ]
     },
-    "default": {},
+    "default": {
+        "turkish-normalization": {
+            "path": "./../turkish_normalization"
+        }
+    },
     "develop": {}
 }
