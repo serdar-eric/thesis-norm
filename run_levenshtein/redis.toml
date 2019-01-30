@@ -1,0 +1,12 @@
+[twitter]
+host = "localhost"
+port = 6375
+db = 0
+password = "xxxxxxxxxxxxxxxxxxxx"
+
+[subtitle]
+host = "localhost"
+port = 6375
+db = 1
+password = "xxxxxxxxxxxxxx"
+
