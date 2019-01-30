@@ -9,12 +9,12 @@ from timeit import default_timer as timer
 
 from turkish_normalization.utils.turkish_sanitize import turkishify
 import turkish_normalization.turkish_levenshtein as t_lev
-from data import get_source, get_source_word_counts, get_target
+from data import get_source, get_target
 from lev_costs import get_costs, get_zero_array
 from utils import create_folder, write_data, write_plain
 
 BASE_FOLDER = "results"
-MODEL_NAME = "multi_deneme"
+MODEL_NAME = "validation-test"
 TIME_STR = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
 
 _logger = logging.getLogger(__name__)
@@ -108,23 +108,25 @@ def write_cache(result_cache):
 
 def fill_cache(_source, initial, cache):
     # only consider the request if cache missed
-    if initial not in cache:
+    if initial not in cache.source_words:
         _logger.debug("Cache missed | Initial %s", initial)
         load_time = timer()
         res = _source.get(initial, [])
+        # cache.source_word_counts.update(_source.get_counts(initial))
         new_res = []
         for w in res:
             turk_w = turkishify(w)
             if turk_w != -1:
                 new_res.append((w, t_lev.tur_enc(turk_w)))
-        cache[initial] = new_res
+        cache.source_words[initial] = new_res
         _logger.debug("Cache filled | Initial %s | Took %.2f", initial, timer() - load_time)
     else:
         _logger.debug("Cache hit | Initial %s", initial)
 
 def word_lookup(reader, _source, cache, locks, schedules):
     _source = get_source()
-    last_recieved_places = {}
+    last_recieved = {}
+    last_id = -1
     updated = False
     while True:
         if reader.poll(0.001):
@@ -138,18 +140,19 @@ def word_lookup(reader, _source, cache, locks, schedules):
             lock = locks[_id]
             with lock:
                 lock.notify()
-            last_p = last_recieved_places.get(_id, 0)
-            last_recieved_places[_id] = last_p + 1
+            last_p = last_recieved.get(_id, 0)
+            last_recieved[_id] = last_p + 1
+            last_id = _id
             updated = True
-        elif updated:
+        if updated and not reader.poll():
             # if there is nothing to do, just fill cache according to schedules
             _logger.debug("Updating Cache")
             updated = False
-            # for _id, last_p in last_recieved_places.items():
-            #     next_initial, _ = schedules[_id][last_p]
-            #     _logger.info("Cache pre-filling => Process %d | Initial %s ", _id, next_initial)
-            #     fill_cache(_source, next_initial, cache)
-            #     _logger.info("Cache pre-filled => Process %d | Initial %s ", _id, next_initial)
+            last_p = last_recieved[last_id]
+            next_initial, _ = schedules[_id][last_p]
+            if next_initial not in cache.source_words:
+                _logger.info("Cache pre-filling => Process %d | Initial %s ", _id, next_initial)
+                fill_cache(_source, next_initial, cache)
         else:
             pass
             #_logger.debug("Cached    | Doing nothing")
@@ -177,7 +180,7 @@ def run_levenshtein(targets, _source, _target, cache, sender, lock):
     for initial, (beg, end) in targets:
         data_start = timer()
         # source_words = _source.get(initial, [])
-        source_words = get_source_words(initial, cache, sender, lock)
+        source_words = get_source_words(initial, cache.source_words, sender, lock)
         data_end = timer()
         target_words = _target.get_range(initial, beg, end)
         # source_word_counts = get_source_word_counts(source_initial_words)
@@ -211,7 +214,7 @@ def run_levenshtein(targets, _source, _target, cache, sender, lock):
                 comparison_count += 1
                 target_comparison += 1
                 initial_comparison_count += 1
-                count = 1  # source_word_counts[word]
+                count = 1 # cache.source_word_counts[word]
                 processed_results.append((dist, count, word))
             target_end = timer()
             _logger.info(
@@ -278,8 +281,10 @@ def main():
     _source = get_source()
     _target = get_target()
     mng = mp.Manager()
-    cache = mng.dict()
-
+    cache = mng.Namespace()
+    cache.source_words = mng.dict()
+    cache.source_word_counts = mng.dict()
+    cache.target_words = mng.dict()
     locks = [mng.Condition() for _ in range(PS_NUM)]
     reader, writer = mp.Pipe()
     counts = calculate_comparisons(_source, _target)
